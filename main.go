@@ -76,29 +76,10 @@ func printer(rrChan chan *reqResPair, w io.Writer) {
 	for {
 		select {
 		case reqRes := <-rrChan:
-			fmt.Println(ansi.Color("Request:", "blue"))
-			req := reqRes.Request
-			res := reqRes.Response
-
-			fmt.Printf("%s %s %s\r\n", req.Method, req.URL.Path, req.Proto)
-			req.Header.Write(w)
-			w.Write(reqRes.RequestBody)
-
-			fmt.Print("\r\n\r\n")
-
-			fmt.Println(ansi.Color("Response:", "green"))
-
-			fmt.Printf("%s %s\r\n", res.Proto, res.Status)
-			res.Header.Write(w)
-			body := make([]byte, res.ContentLength)
-
-			_, err := res.Body.Read(body)
-			if err != nil && err != io.EOF {
-				fmt.Println(err)
-			}
-			w.Write(body)
-
-			fmt.Println("\n----------\n")
+			printRequest(w, reqRes.Request, reqRes.RequestBody)
+			fmt.Fprint(w, "\n\n")
+			printResponse(w, reqRes.Response, reqRes.ResponseBody)
+			fmt.Fprint(w, "\n----------\n")
 		}
 	}
 }
@@ -107,8 +88,8 @@ func createSubReq(r *http.Request) (*http.Request, []byte, error) {
 	body := make([]byte, r.ContentLength)
 
 	_, err := r.Body.Read(body)
-	if err != nil && err != io.EOF {
-		fmt.Println(err)
+	if err != io.EOF {
+		panicIf(err)
 	}
 
 	re := proxyMatcher.FindAllStringSubmatch(r.RequestURI, 2)[0]
@@ -124,6 +105,22 @@ func createSubReq(r *http.Request) (*http.Request, []byte, error) {
 	subReq.Header = r.Header
 
 	return subReq, body, nil
+}
+
+func printRequest(w io.Writer, req *http.Request, body []byte) {
+	fmt.Fprintln(w, ansi.Color("Request:", "blue"))
+
+	fmt.Fprintf(w, "%s %s %s\r\n", req.Method, req.URL.Path, req.Proto)
+	req.Header.Write(w)
+	w.Write(body)
+}
+
+func printResponse(w io.Writer, res *http.Response, body []byte) {
+	fmt.Fprintln(w, ansi.Color("Response:", "green"))
+
+	fmt.Fprintf(w, "%s %s\r\n", res.Proto, res.Status)
+	res.Header.Write(w)
+	w.Write(body)
 }
 
 func panicIf(err error) {
