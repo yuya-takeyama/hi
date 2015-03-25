@@ -13,9 +13,10 @@ import (
 )
 
 type reqResPair struct {
-	Request     *http.Request
-	RequestBody []byte
-	Response    *http.Response
+	Request      *http.Request
+	RequestBody  []byte
+	Response     *http.Response
+	ResponseBody []byte
 }
 
 var port uint
@@ -36,30 +37,33 @@ func main() {
 	go printer(reqResChan, os.Stdout)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		body := make([]byte, r.ContentLength)
-
-		_, err := r.Body.Read(body)
-		if err != nil && err != io.EOF {
-			fmt.Println(err)
-		}
-
-		re := proxyMatcher.FindAllStringSubmatch(r.RequestURI, 2)[0]
-
-		host := re[1]
-		uri := re[2]
-
-		subReq, err := http.NewRequest(r.Method, fmt.Sprintf("http://%s%s", host, uri), bytes.NewBuffer(body))
-		if err != nil {
-			fmt.Println(err)
-		}
-		subReq.Header = r.Header
+		subReq, reqBody, err := createSubReq(r)
+		panicIf(err)
 
 		res, err := httpClient.Do(subReq)
+		panicIf(err)
+
+		resBody := make([]byte, res.ContentLength)
+
+		_, err = res.Body.Read(resBody)
+		if err != io.EOF {
+			panicIf(err)
+		}
+
+		for key, values := range res.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+
+		w.WriteHeader(res.StatusCode)
+		w.Write(resBody)
 
 		reqResPair := &reqResPair{
-			Request:     subReq,
-			RequestBody: body,
-			Response:    res,
+			Request:      subReq,
+			RequestBody:  reqBody,
+			Response:     res,
+			ResponseBody: resBody,
 		}
 
 		reqResChan <- reqResPair
@@ -96,5 +100,34 @@ func printer(rrChan chan *reqResPair, w io.Writer) {
 
 			fmt.Println("\n----------\n")
 		}
+	}
+}
+
+func createSubReq(r *http.Request) (*http.Request, []byte, error) {
+	body := make([]byte, r.ContentLength)
+
+	_, err := r.Body.Read(body)
+	if err != nil && err != io.EOF {
+		fmt.Println(err)
+	}
+
+	re := proxyMatcher.FindAllStringSubmatch(r.RequestURI, 2)[0]
+
+	host := re[1]
+	uri := re[2]
+
+	subReq, err := http.NewRequest(r.Method, fmt.Sprintf("http://%s%s", host, uri), bytes.NewBuffer(body))
+	if err != nil {
+		return nil, []byte{}, err
+	}
+
+	subReq.Header = r.Header
+
+	return subReq, body, nil
+}
+
+func panicIf(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
