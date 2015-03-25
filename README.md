@@ -2,6 +2,8 @@
 
 Provide instant inspector for your *PRIVATE* Web APIs
 
+![capture](images/capture.png)
+
 ## Installation
 
 ```
