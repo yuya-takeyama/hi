@@ -20,18 +20,18 @@ type reqResPair struct {
 
 var port uint
 var proxyMatcher *regexp.Regexp
+var reqResChan chan *reqResPair
 
 func init() {
 	flag.UintVar(&port, "port", 8080, "port number listens HTTP")
 	flag.Parse()
 
 	proxyMatcher = regexp.MustCompile(`^/proxy/([^/]+)(/.*)$`)
+	reqResChan = make(chan *reqResPair)
 }
 
 func main() {
-	reqResChan := make(chan *reqResPair)
-
-	go printer(reqResChan)
+	go printer(reqResChan, os.Stdout)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		body := make([]byte, r.ContentLength)
@@ -52,7 +52,7 @@ func main() {
 		}
 		subReq.Header = r.Header
 
-		client := &http.Client{}
+		client := http.DefaultClient
 		res, err := client.Do(subReq)
 
 		reqResPair := &reqResPair{
@@ -67,7 +67,7 @@ func main() {
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
-func printer(rrChan chan *reqResPair) {
+func printer(rrChan chan *reqResPair, w io.Writer) {
 	for {
 		select {
 		case reqRes := <-rrChan:
@@ -76,22 +76,22 @@ func printer(rrChan chan *reqResPair) {
 			res := reqRes.Response
 
 			fmt.Printf("%s %s %s\r\n", req.Method, req.URL.Path, req.Proto)
-			req.Header.Write(os.Stdout)
-			os.Stdout.Write(reqRes.RequestBody)
+			req.Header.Write(w)
+			w.Write(reqRes.RequestBody)
 
 			fmt.Print("\r\n\r\n")
 
 			fmt.Println(ansi.Color("Response:", "green"))
 
 			fmt.Printf("%s %s\r\n", res.Proto, res.Status)
-			res.Header.Write(os.Stdout)
+			res.Header.Write(w)
 			body := make([]byte, res.ContentLength)
 
 			_, err := res.Body.Read(body)
 			if err != nil && err != io.EOF {
 				fmt.Println(err)
 			}
-			os.Stdout.Write(body)
+			w.Write(body)
 
 			fmt.Println("\n----------\n")
 		}
