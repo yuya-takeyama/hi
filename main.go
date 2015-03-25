@@ -21,6 +21,7 @@ type reqResPair struct {
 var port uint
 var proxyMatcher *regexp.Regexp
 var reqResChan chan *reqResPair
+var httpClient *http.Client
 
 func init() {
 	flag.UintVar(&port, "port", 8080, "port number listens HTTP")
@@ -28,6 +29,7 @@ func init() {
 
 	proxyMatcher = regexp.MustCompile(`^/proxy/([^/]+)(/.*)$`)
 	reqResChan = make(chan *reqResPair)
+	httpClient = http.DefaultClient
 }
 
 func main() {
@@ -52,8 +54,7 @@ func main() {
 		}
 		subReq.Header = r.Header
 
-		client := http.DefaultClient
-		res, err := client.Do(subReq)
+		res, err := httpClient.Do(subReq)
 
 		reqResPair := &reqResPair{
 			Request:     subReq,
