@@ -110,7 +110,7 @@ func createSubReq(r *http.Request) (*http.Request, []byte, error) {
 func printRequest(w io.Writer, req *http.Request, body []byte) {
 	fmt.Fprintln(w, ansi.Color("Request:", "blue"))
 
-	fmt.Fprintf(w, "%s %s %s\r\n", req.Method, req.URL.Path, req.Proto)
+	fmt.Fprintf(w, "%s %s %s\r\n", req.Method, req.URL.RequestURI(), req.Proto)
 	req.Header.Write(w)
 	w.Write(body)
 }
