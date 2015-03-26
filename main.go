@@ -112,6 +112,7 @@ func printRequest(w io.Writer, req *http.Request, body []byte) {
 
 	fmt.Fprintf(w, "%s %s %s\r\n", req.Method, req.URL.RequestURI(), req.Proto)
 	req.Header.Write(w)
+	io.WriteString(w, "\n")
 	w.Write(body)
 }
 
@@ -120,6 +121,7 @@ func printResponse(w io.Writer, res *http.Response, body []byte) {
 
 	fmt.Fprintf(w, "%s %s\r\n", res.Proto, res.Status)
 	res.Header.Write(w)
+	io.WriteString(w, "\n")
 	w.Write(body)
 }
 
