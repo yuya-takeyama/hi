@@ -20,12 +20,14 @@ type reqResPair struct {
 }
 
 var port uint
+var showVersion bool
 var proxyMatcher *regexp.Regexp
 var reqResChan chan *reqResPair
 var httpClient *http.Client
 
 func init() {
 	flag.UintVar(&port, "port", 8080, "port number listens HTTP")
+	flag.BoolVar(&showVersion, "version", false, "show version")
 	flag.Parse()
 
 	proxyMatcher = regexp.MustCompile(`^/proxy/([^/]+)(/.*)$`)
@@ -34,6 +36,11 @@ func init() {
 }
 
 func main() {
+	if showVersion {
+		printVersion()
+		os.Exit(0)
+	}
+
 	go printer(reqResChan, os.Stdout)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -127,4 +134,8 @@ func panicIf(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func printVersion() {
+	fmt.Printf("hi v%s, build %s\n", Version, GitCommit)
 }
